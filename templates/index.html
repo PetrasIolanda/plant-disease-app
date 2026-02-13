@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnostic Boli Plante</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a472a, #2d6a4f);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #1a472a;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .upload-area {
+            border: 3px dashed #2d6a4f;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover { background: #f0f7f4; }
+
+        .upload-area p { color: #666; margin-top: 10px; }
+
+        #imagePreview {
+            max-width: 100%;
+            max-height: 250px;
+            border-radius: 10px;
+            display: none;
+            margin: 15px auto;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #1a472a, #2d6a4f);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+
+        button:hover { opacity: 0.9; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        #result {
+            margin-top: 25px;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .result-healthy { background: #d4edda; border: 2px solid #28a745; }
+        .result-disease { background: #fff3cd; border: 2px solid #ffc107; }
+        .result-severe { background: #f8d7da; border: 2px solid #dc3545; }
+
+        .result-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .confidence {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .recommendation {
+            font-size: 14px;
+            color: #333;
+            padding: 10px;
+            background: rgba(255,255,255,0.6);
+            border-radius: 8px;
+        }
+
+        .loading {
+            text-align: center;
+            color: #2d6a4f;
+            font-style: italic;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌿 Diagnostic Boli Plante</h1>
+        <p class="subtitle">Încarcă o fotografie cu frunza plantei pentru diagnostic</p>
+
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <p>📷 Click pentru a încărca o imagine</p>
+            <p style="font-size: 12px; margin-top: 5px;">JPG, PNG acceptate</p>
+        </div>
+
+        <input type="file" id="fileInput" accept="image/*" style="display:none">
+        <img id="imagePreview" alt="Preview">
+
+        <button id="analyzeBtn" disabled onclick="analyze()">
+            Analizează Planta
+        </button>
+
+        <div class="loading" id="loading">⏳ Se analizează imaginea...</div>
+
+        <div id="result">
+            <div class="result-title" id="resultTitle"></div>
+            <div class="confidence" id="resultConfidence"></div>
+            <div class="recommendation" id="resultRecommendation"></div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const preview = document.getElementById('imagePreview');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    analyzeBtn.disabled = false;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        async function analyze() {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            analyzeBtn.disabled = true;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                document.getElementById('loading').style.display = 'none';
+                const resultDiv = document.getElementById('result');
+                resultDiv.style.display = 'block';
+
+                // Culoare in functie de rezultat
+                resultDiv.className = '';
+                if (data.disease.includes('healthy')) {
+                    resultDiv.classList.add('result-healthy');
+                } else if (data.disease.includes('Late blight') || data.disease.includes('mosaic')) {
+                    resultDiv.classList.add('result-severe');
+                } else {
+                    resultDiv.classList.add('result-disease');
+                }
+
+                document.getElementById('resultTitle').textContent = '🔍 ' + data.disease;
+                document.getElementById('resultConfidence').textContent =
+                    'Încredere: ' + data.confidence + '%';
+                document.getElementById('resultRecommendation').textContent =
+                    '💊 ' + data.recommendation;
+
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                alert('Eroare la analiză. Verificați că serverul rulează.');
+            }
+
+            analyzeBtn.disabled = false;
+        }
+    </script>
+</body>
+</html>
