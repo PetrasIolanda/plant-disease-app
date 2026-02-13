@@ -8,8 +8,8 @@ import os
 app = Flask(__name__)
 
 # Incarcam modelul si clasele
-model = tf.keras.models.load_model('../model/plant_model_final.keras')
-with open('../model/class_names.json', 'r') as f:
+model = tf.keras.models.load_model('model/plant_model_final.keras')
+with open('model/class_names.json', 'r') as f:
     class_names = json.load(f)
 
 # Recomandari pentru fiecare boala
